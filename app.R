@@ -34,7 +34,9 @@ ui <- fluidPage(
         dataTableOutput('contents')
       ),
       tabPanel("Summary",
+               h4("Structure of the data"),
                verbatimTextOutput("structure"),
+               h4("Data Summary"),
                verbatimTextOutput("summary")
               
                #  tableOutput('contents')
@@ -42,20 +44,26 @@ ui <- fluidPage(
       tabPanel(
         "Correlation",
         plotOutput("corr"),
+        h4("Correlation Table"),
         verbatimTextOutput("corrTable")
       ),
    
       tabPanel( "Histogram",
                 uiOutput("xval"),
-               # uiOutput("yval"),
                 plotOutput("hist"),
                verbatimTextOutput("indSummary")
       ),
       tabPanel(
         "Barchart",
         uiOutput("xval1"),
-        uiOutput("yval1"),
-        plotOutput("box")
+        plotOutput("bar")
+      ),
+      tabPanel(
+        
+        "Multibarchart",
+        uiOutput("multibarColorBy"),
+        uiOutput("multibaryval"),
+        plotOutput("multibar")
       )
       
       
@@ -109,8 +117,8 @@ server <-  function(input, output) {
   output$xval <- renderUI({selectInput("x","x-Value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
   #output$yval <- renderUI({selectInput("y","y-value",c(names(datasetInput())))})
   
-  output$xval1 <- renderUI({selectInput("x1","Value",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
-  output$yval1 <- renderUI({selectInput("y1","y-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  output$xval1 <- renderUI({selectInput("x1","Value",c(names(datasetInput())))})
+  #output$yval1 <- renderUI({selectInput("y1","y-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
   
   
   output$corr <- renderPlot({
@@ -118,19 +126,17 @@ server <-  function(input, output) {
     
       })
   
-  
+  ndata <- reactive({datasetInput()[sapply(datasetInput(),is.numeric)]})
   output$corrTable <- renderPrint({
-    cor(iris$Sepal.Length, iris$Petal.Length)
+    cor(ndata())
     
   #  print(numberOfdCol())
     
   })
-  output$box <- renderPlot({
+  output$bar <- renderPlot({
     title <- "name"
-    barplot(datasetInput()[,input$x1]
-         #ylab=input$y1,
-         #xlab=input$x1
-         )
+    counts <- table(datasetInput()[,input$x1])
+    barplot(counts,xlab=input$x1 )
   })
   
   output$hist <- renderPlot({
@@ -142,7 +148,14 @@ server <-  function(input, output) {
     
     summary(datasetInput()[,input$x])
   })
+  output$multibarColorBy <- renderUI({selectInput("ColorBy","Color By",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
+  output$multibaryval <- renderUI({selectInput("yvalgg","y-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
   
+  
+  output$multibar <- renderPlot({
+    abc <- ggplot(datasetInput(),aes(datasetInput()[,input$yvalgg],fill = datasetInput()[,input$ColorBy])) + geom_bar(width = 5)
+    abc
+  })
 }
 
 
