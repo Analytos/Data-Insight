@@ -1,7 +1,7 @@
 library(shiny)
 library(Hmisc)
 library(car)
-library(lattice)
+library(stats)
 options(shiny.maxRequestSize=100*1024^2)
 
 ui <- fluidPage(
@@ -31,7 +31,7 @@ ui <- fluidPage(
       
       tabPanel(
         "content",
-        tableOutput('contents')
+        dataTableOutput('contents')
       ),
       tabPanel("Summary",
                verbatimTextOutput("structure"),
@@ -41,13 +41,15 @@ ui <- fluidPage(
       ),
       tabPanel(
         "Correlation",
-        plotOutput("corr")
+        plotOutput("corr"),
+        verbatimTextOutput("corrTable")
       ),
    
       tabPanel( "Histogram",
                 uiOutput("xval"),
                # uiOutput("yval"),
-                plotOutput("hist")
+                plotOutput("hist"),
+               verbatimTextOutput("indSummary")
       ),
       tabPanel(
         "Barchart",
@@ -70,7 +72,7 @@ server <-  function(input, output) {
     gsub("factor","String",sapply(datasetInput(),class))
   })
   
-  output$contents <- renderTable({
+  output$contents <- renderDataTable({
     
     
     inFile <- input$file1
@@ -78,7 +80,7 @@ server <-  function(input, output) {
     if (is.null(inFile))
       return(NULL)
     
-    read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+    read.csv(inFile$datapath, nrows = 20, header=input$header, sep=input$sep, 
              quote=input$quote)
   })
   
@@ -93,21 +95,14 @@ server <-  function(input, output) {
              quote=input$quote)
   })
   
-  datasetInput <- reactive({
-    
-    inFile <- input$file1
-    
-    if (is.null(inFile))
-      return(NULL)
-    
-    read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-             quote=input$quote)
+  numberOfdCol <- reactive({
+   noCol <- ncol(datasetInput())
+   
   })
   
   
-  
   output$summary <- renderPrint({
-    summary(datasetInput())
+   summary(datasetInput())
   })
   
   
@@ -121,6 +116,14 @@ server <-  function(input, output) {
   output$corr <- renderPlot({
     pairs(datasetInput())
     
+      })
+  
+  
+  output$corrTable <- renderPrint({
+    cor(iris$Sepal.Length, iris$Petal.Length)
+    
+  #  print(numberOfdCol())
+    
   })
   output$box <- renderPlot({
     title <- "name"
@@ -133,6 +136,11 @@ server <-  function(input, output) {
   output$hist <- renderPlot({
     title <- "name"
      hist(datasetInput()[,input$x])
+  })
+  
+  output$indSummary <- renderPrint({
+    
+    summary(datasetInput()[,input$x])
   })
   
 }
