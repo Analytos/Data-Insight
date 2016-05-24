@@ -2,11 +2,14 @@ library(shiny)
 library(Hmisc)
 library(car)
 library(stats)
+library(sm)
+library(vcd)
 options(shiny.maxRequestSize=100*1024^2)
 
 ui <- fluidPage(
   
-  
+  tags$title("Data Quality analysis"),
+  #tags$head(tags$img(rel = "icon" ,src="ANALYTOS300PX.png")),
   
   sidebarPanel(
     fileInput('file1', 'Choose CSV File',
@@ -37,7 +40,7 @@ ui <- fluidPage(
                h4("Structure of the data"),
                verbatimTextOutput("structure"),
                h4("Data Summary"),
-               verbatimTextOutput("summary")
+               dataTableOutput("summary")
               
                #  tableOutput('contents')
       ),
@@ -64,6 +67,18 @@ ui <- fluidPage(
         uiOutput("multibarColorBy"),
         uiOutput("multibaryval"),
         plotOutput("multibar")
+      ),
+      tabPanel(
+        "Density",
+        uiOutput("DGColorBy"),
+        uiOutput("DGxval"),
+        plotOutput("densityGraph")
+      ),
+      tabPanel(
+        "Outliers",
+        uiOutput("BPColorBy"),
+        uiOutput("BPxval"),
+        plotOutput("boxplot")
       )
       
       
@@ -75,6 +90,44 @@ ui <- fluidPage(
 
 
 server <-  function(input, output) {
+  
+ 
+  output$BPColorBy <- renderUI({selectInput("BPColor","value 1",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
+  output$BPxval <- renderUI({selectInput("BPxvalgg","value 2",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  
+  
+  output$boxplot <- renderPlot ({
+    # sm.density.compare(datasetInput()[,input$DGxvalgg], datasetInput()[,input$DGColor], xlab=datasetInput()[,input$DGColor],col=topo.colors(3))
+    # legend("topright", inset=.02,legend= unique(datasetInput()[,input$DGColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
+    boxplot(datasetInput()[,input$BPxvalgg] ~ datasetInput()[,input$BPColor] ,col=topo.colors(3))
+    legend("bottomright", inset=.02,legend= unique(datasetInput()[,input$BPColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
+    
+    
+  })
+  
+  
+  
+  datasetInput<-reactive({
+    
+    inFile <- input$file1
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+    read.csv(inFile$datapath, header=input$header, sep=input$sep, 
+             quote=input$quote)
+  }) 
+  
+  output$DGColorBy <- renderUI({selectInput("DGColor","Color By",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
+  output$DGxval <- renderUI({selectInput("DGxvalgg","x-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  
+  
+  output$densityGraph <- renderPlot ({
+   # sm.density.compare(datasetInput()[,input$DGxvalgg], datasetInput()[,input$DGColor], xlab=datasetInput()[,input$DGColor],col=topo.colors(3))
+   # legend("topright", inset=.02,legend= unique(datasetInput()[,input$DGColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
+   qplot(datasetInput()[,input$DGxvalgg], data=datasetInput(), geom = "density",alpha=I(.7),fill=datasetInput()[,input$DGColor])
+    
+  })
   
   output$structure <- renderPrint({
     gsub("factor","String",sapply(datasetInput(),class))
@@ -92,16 +145,7 @@ server <-  function(input, output) {
              quote=input$quote)
   })
   
-  datasetInput<-reactive({
-    
-    inFile <- input$file1
-    
-    if (is.null(inFile))
-      return(NULL)
-    
-    read.csv(inFile$datapath, header=input$header, sep=input$sep, 
-             quote=input$quote)
-  })
+
   
   numberOfdCol <- reactive({
    noCol <- ncol(datasetInput())
@@ -109,7 +153,7 @@ server <-  function(input, output) {
   })
   
   
-  output$summary <- renderPrint({
+  output$summary <- renderDataTable({
    summary(datasetInput())
   })
   
