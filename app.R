@@ -158,17 +158,9 @@ server <-  function(input, output) {
     print(catg)
     if(catg == "None")
     {
-      is_outlier <- function(x) {
-        return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
-        
-      }
+      boxplot(datasetInput()[,input$BPyvalgg],col=topo.colors(3))
+      #legend("bottomright", inset=.02,legend= unique(datasetInput()[,input$BPColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
       
-      iris_new1 %>%
-        mutate(outlier = ifelse(is_outlier(datasetInput()[,input$BPyvalgg]), datasetInput()[,input$BPyvalgg], as.numeric(NA))) %>%
-        
-        ggplot(., aes(x = 1,y = datasetInput()[,input$BPyvalgg])) +
-        geom_boxplot() +
-        geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) 
     }
     else
     {
