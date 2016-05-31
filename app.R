@@ -42,12 +42,13 @@ ui <- fluidPage(
         dataTableOutput('contents')
       ),
       tabPanel("Summary",
-               h4("Structure of the data"),
-               verbatimTextOutput("structure"),
-               h4("Data Summary"),
-               dataTableOutput("summary")
               
-               #  tableOutput('contents')
+               h4(textOutput("Rowinfo" )),
+               h4(textOutput("Colinfo" )),
+               h4("Structure of the data"),
+               tableOutput("structure"),
+               h4("Data Summary"),
+               tableOutput("summary")
       ),
       tabPanel(
         "Correlation",
@@ -88,7 +89,6 @@ ui <- fluidPage(
             style="display:inline-block",
             uiOutput("xval"),
             plotOutput("hist")
-           # verbatimTextOutput("indSummary")
           )
         ),
         tags$div(
@@ -137,17 +137,45 @@ server <-  function(input, output) {
     
   })
  
-  output$BPColorBy <- renderUI({selectInput("BPColor","value 1",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
-  output$BPxval <- renderUI({selectInput("BPxvalgg","value 2",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
+  output$BPColorBy <- renderUI({
+    
+    a <- c(names(datasetInput())[sapply(datasetInput(), class) == "factor"])
+    if(length(a) == 0) {
+      selectInput("BPColor","Categories",c("None"))  
+    }
+    else
+    {
+    selectInput("BPColor","Categories",c("None",names(datasetInput())[sapply(datasetInput(), class) == "factor"]))
+    }
+     })
+  
+  output$BPxval <- renderUI({selectInput("BPyvalgg","Y values",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
   
   
   output$boxplot <- renderPlot ({
-    # sm.density.compare(datasetInput()[,input$DGxvalgg], datasetInput()[,input$DGColor], xlab=datasetInput()[,input$DGColor],col=topo.colors(3))
-    # legend("topright", inset=.02,legend= unique(datasetInput()[,input$DGColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
-    boxplot(datasetInput()[,input$BPxvalgg] ~ datasetInput()[,input$BPColor] ,col=topo.colors(3))
+    
+    catg<- input$BPColor
+    print(catg)
+    if(catg == "None")
+    {
+      is_outlier <- function(x) {
+        return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+        
+      }
+      
+      iris_new1 %>%
+        mutate(outlier = ifelse(is_outlier(datasetInput()[,input$BPyvalgg]), datasetInput()[,input$BPyvalgg], as.numeric(NA))) %>%
+        
+        ggplot(., aes(x = 1,y = datasetInput()[,input$BPyvalgg])) +
+        geom_boxplot() +
+        geom_text(aes(label = outlier), na.rm = TRUE, hjust = -0.3) 
+    }
+    else
+    {
+    boxplot(datasetInput()[,input$BPyvalgg] ~ datasetInput()[,input$BPColor] ,col=topo.colors(3))
     legend("bottomright", inset=.02,legend= unique(datasetInput()[,input$BPColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
     
-    
+    }
   })
   
   
@@ -168,14 +196,18 @@ server <-  function(input, output) {
   
   
   output$densityGraph <- renderPlot ({
-   # sm.density.compare(datasetInput()[,input$DGxvalgg], datasetInput()[,input$DGColor], xlab=datasetInput()[,input$DGColor],col=topo.colors(3))
-   # legend("topright", inset=.02,legend= unique(datasetInput()[,input$DGColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
-   qplot(datasetInput()[,input$DGxvalgg], data=datasetInput(), geom = "density",alpha=I(.7),fill=datasetInput()[,input$DGColor])
+  qplot(datasetInput()[,input$DGxvalgg], data=datasetInput(), geom = "density",alpha=I(.7),fill=datasetInput()[,input$DGColor])
     
   },height = 300, width = 400 )
   
-  output$structure <- renderPrint({
-    gsub("factor","String",sapply(datasetInput(),class))
+  
+
+  output$structure <- renderTable({
+    types <- gsub("factor","String",sapply(datasetInput(),class))
+    require(reshape2)
+    df <- melt(data.frame(types))
+    colnames(df) <- c( "Data types")
+    df
   })
   
   output$contents <- renderDataTable({
@@ -198,9 +230,10 @@ server <-  function(input, output) {
   })
   
   
-  output$summary <- renderDataTable({
+  output$summary <- renderTable({
    summary(datasetInput())
   })
+  
   
   
   output$xval <- renderUI({selectInput("x","x-Value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
@@ -233,10 +266,19 @@ server <-  function(input, output) {
      hist(datasetInput()[,input$x] , col = "lightskyblue1")
   },height = 300, width = 400)
   
-  output$indSummary <- renderPrint({
+  
+  
+  output$Rowinfo <- renderText({
     
-    summary(datasetInput()[,input$x])
+    paste( "Number of Rows",dim(datasetInput())[1])
   })
+  
+  
+  output$Colinfo <- renderText({
+    paste( "Number of Columns",dim(datasetInput())[2])
+  })
+  
+  
   output$multibarColorBy <- renderUI({selectInput("ColorBy","Color By",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
   output$multibaryval <- renderUI({selectInput("yvalgg","y-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
   
