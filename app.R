@@ -4,11 +4,16 @@ library(car)
 library(stats)
 library(sm)
 library(vcd)
+library(randomForest)
 options(shiny.maxRequestSize=100*1024^2)
 
 ui <- fluidPage(
   
-  tags$title("Data Quality analysis"),
+ 
+  headerPanel(
+    list(tags$head( tags$style("body {background-color: #FDFDFD;}"),
+                    tags$title("Data Quality analysis")
+                    ))),
   #tags$head(tags$img(rel = "icon" ,src="ANALYTOS300PX.png")),
   
   sidebarPanel(
@@ -51,34 +56,58 @@ ui <- fluidPage(
         verbatimTextOutput("corrTable")
       ),
    
-      tabPanel( "Histogram",
-                uiOutput("xval"),
-                plotOutput("hist"),
-               verbatimTextOutput("indSummary")
-      ),
-      tabPanel(
-        "Barchart",
-        uiOutput("xval1"),
-        plotOutput("bar")
-      ),
-      tabPanel(
-        
-        "Multibarchart",
-        uiOutput("multibarColorBy"),
-        uiOutput("multibaryval"),
-        plotOutput("multibar")
-      ),
-      tabPanel(
-        "Density",
-        uiOutput("DGColorBy"),
-        uiOutput("DGxval"),
-        plotOutput("densityGraph")
-      ),
+  
       tabPanel(
         "Outliers",
         uiOutput("BPColorBy"),
         uiOutput("BPxval"),
         plotOutput("boxplot")
+      ),
+      tabPanel(
+        "VariableImportance",
+        plotOutput("Variable_importance_function"),
+        tableOutput("var.imp")
+        
+      ),
+      tabPanel(
+        "Data insight",
+      
+        tags$div(
+          height = "500px",
+          tags$div(
+            "Bar Chart",
+            style="display:inline-block ",
+            float = "left",
+            uiOutput("xval1"),
+            plotOutput("bar")
+          ),
+
+          
+          tags$div(
+            "Histogram",
+            style="display:inline-block",
+            uiOutput("xval"),
+            plotOutput("hist")
+           # verbatimTextOutput("indSummary")
+          )
+        ),
+        tags$div(
+          tags$div(
+            "Multi Bar Chart",
+            style="display:inline-block",
+            float = "right",
+            uiOutput("multibarColorBy",width = "50px"),
+            uiOutput("multibaryval", width = "50px"),
+            plotOutput("multibar")
+          ),
+          tags$div(
+            "Density",
+            style="display:inline-block",
+            uiOutput("DGColorBy"),
+            uiOutput("DGxval"),
+            plotOutput("densityGraph")
+          )
+        )
       )
       
       
@@ -91,9 +120,25 @@ ui <- fluidPage(
 
 server <-  function(input, output) {
   
+  
+  output$Variable_importance_function <- renderPlot({
+    Variable_importance=randomForest(datasetInput(),na.rm=T)
+    varImpPlot(Variable_importance,sort = T)
+    
+  })
+  
+  
+  output$var.imp<- renderTable({
+    Variable_importance=randomForest(datasetInput(),na.rm=T)
+    var.imp = data.frame(importance(Variable_importance,type = 2)) 
+    var.imp$Variables <- row.names(var.imp)
+    var.imp[order(var.imp$MeanDecreaseGini,decreasing = T),]
+    
+    
+  })
  
   output$BPColorBy <- renderUI({selectInput("BPColor","value 1",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
-  output$BPxval <- renderUI({selectInput("BPxvalgg","value 2",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  output$BPxval <- renderUI({selectInput("BPxvalgg","value 2",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
   
   
   output$boxplot <- renderPlot ({
@@ -119,7 +164,7 @@ server <-  function(input, output) {
   }) 
   
   output$DGColorBy <- renderUI({selectInput("DGColor","Color By",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
-  output$DGxval <- renderUI({selectInput("DGxvalgg","x-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  output$DGxval <- renderUI({selectInput("DGxvalgg","x-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
   
   
   output$densityGraph <- renderPlot ({
@@ -127,7 +172,7 @@ server <-  function(input, output) {
    # legend("topright", inset=.02,legend= unique(datasetInput()[,input$DGColor]), fill=topo.colors(3), horiz=FALSE, cex=0.8)
    qplot(datasetInput()[,input$DGxvalgg], data=datasetInput(), geom = "density",alpha=I(.7),fill=datasetInput()[,input$DGColor])
     
-  })
+  },height = 300, width = 400 )
   
   output$structure <- renderPrint({
     gsub("factor","String",sapply(datasetInput(),class))
@@ -158,7 +203,7 @@ server <-  function(input, output) {
   })
   
   
-  output$xval <- renderUI({selectInput("x","x-Value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  output$xval <- renderUI({selectInput("x","x-Value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
   #output$yval <- renderUI({selectInput("y","y-value",c(names(datasetInput())))})
   
   output$xval1 <- renderUI({selectInput("x1","Value",c(names(datasetInput())))})
@@ -180,26 +225,26 @@ server <-  function(input, output) {
   output$bar <- renderPlot({
     title <- "name"
     counts <- table(datasetInput()[,input$x1])
-    barplot(counts,xlab=input$x1 )
-  })
+    barplot(counts,xlab=input$x1,col = "lightseagreen" )
+  },height = 300, width = 400)
   
   output$hist <- renderPlot({
     title <- "name"
-     hist(datasetInput()[,input$x])
-  })
+     hist(datasetInput()[,input$x] , col = "lightskyblue1")
+  },height = 300, width = 400)
   
   output$indSummary <- renderPrint({
     
     summary(datasetInput()[,input$x])
   })
   output$multibarColorBy <- renderUI({selectInput("ColorBy","Color By",c(names(datasetInput())[sapply(datasetInput(), class) == "factor"]))})
-  output$multibaryval <- renderUI({selectInput("yvalgg","y-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer"]))})
+  output$multibaryval <- renderUI({selectInput("yvalgg","y-value",c(names(datasetInput())[sapply(datasetInput(), class) == "integer" || sapply(datasetInput(),class) == "numeric"|| sapply(datasetInput(),class) == "int"]))})
   
   
   output$multibar <- renderPlot({
-    abc <- ggplot(datasetInput(),aes(datasetInput()[,input$yvalgg],fill = datasetInput()[,input$ColorBy])) + geom_bar(width = 5)
+    abc <- ggplot(datasetInput(),aes(datasetInput()[,input$yvalgg],fill = datasetInput()[,input$ColorBy])) + geom_bar()
     abc
-  })
+  },height = 300, width = 400)
 }
 
 
